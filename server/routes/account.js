@@ -8,7 +8,7 @@ const connection = require('./js/conn')
 router.all('*', (req, res, next) =>{
 // 设置响应头解决跨域
     res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:8080")
-    res.setHeader("Access-Control-Allow-Headers", "authorization"); // 允许通过头部信息authorization 携带token
+    res.setHeader("Access-Control-Allow-Headers", "authorization, content-type"); // 允许通过头部信息authorization 携带token
     // 放行
     next()
 })
@@ -41,11 +41,14 @@ router.use(function (err, req, res, next) {
 // 添加账号路由
 router.post('/accountadd', (req, res) =>{
     // 接收数据
-    let { account, password, userGroup } = req.body
+    let { account, password, userGroup } = req.body;
+
+    // 默认头像
+    let imgUrl = 'upload/default.jpg';
 
     // 写sql
-    const sqlStr = `insert into account(account, password, user_group) values('${account}', '${password}', '${userGroup}')`
-    console.log(sqlStr);
+    const sqlStr = `insert into account(account, password, user_group, img_url) values('${account}', '${password}', '${userGroup}', '${imgUrl}')`
+    // console.log(sqlStr);
     
     // 执行sql
     connection.query(sqlStr, (err, data) =>{
@@ -77,6 +80,7 @@ router.get('/accountlist', (req, res) => {
 
 // 删除账号
 router.get('/delaccount', (req, res) =>{
+
     // 接收id
     let { id } = req.query;
     // 构造sql
@@ -222,5 +226,143 @@ router.post('/savenewpassword', (req, res) =>{
 
     
 })
+
+// 个人信息
+router.get('/accountinfo', (req, res) =>{
+    // 获取当前登录的id
+    const id = req.user.id;
+    // 构造sql
+    const sqlStr = `select * from account where id=${id}`
+    // 执行
+    connection.query(sqlStr, (err, data) =>{
+        if (err) throw err;
+		res.send(data)
+    })
+
+})
+
+
+// 引入multer
+const multer = require('multer');
+// 配置上传服务器放置的目录  和  重命名
+const storage = multer.diskStorage({
+	destination: 'public/upload', // 图片上传到服务器的这个目录
+	  // 图片重命名
+    filename (req, file, cb) {
+        var fileFormat =(file.originalname).split("."); // haha.jpg => ['haha', 'jpg']
+        // 获取时间戳
+        var filename = new Date().getTime();  
+        // 124354654 + "." + jpg
+        cb(null, filename + "." + fileFormat[fileFormat.length - 1]);
+    }
+})
+// 上传对象
+const upload = multer({
+    storage,
+})
+
+
+
+// 头像上传请求
+router.post('/uploadavatar', upload.single('file'), (req, res) =>{
+    // 获取文件名
+    let filename = req.file.filename;
+    // console.log(filename);  
+    // 拼接路径
+    let path = `/upload/${filename}`;
+
+    // 构造sql
+    const sqlStr = `update account set img_url='${path}' where id=${req.user.id}`;
+    // 执行sql
+    connection.query(sqlStr, (err, data) => {
+        if (err) throw err;
+        if (data.affectedRows > 0) {
+            res.send({code: 0, reason: "头像修改成功!", path})
+        } else {
+            res.send({code: 1, reason: "头像修改失败"})
+        }
+    })
+    
+})
+
+// 请求用户角色
+router.get('/menus', (req, res) =>{    
+    // 获取用户组
+    let userGroup = req.user.user_group;
+    let role = userGroup === '超级管理员' ? 'super' : 'normal';
+
+    let menus = [
+        
+        //系统管理
+        {
+
+            iconClass:'el-icon-document',
+            title:'系统管理',
+            roles:['super', 'normal'],
+            //二级
+            children:[
+                {path:'/home/systeminfo', subTitle:'系统信息'}
+            ]
+        },
+
+        // 账号管理
+        {
+            
+            iconClass:'el-icon-news',
+            title:'账号管理',
+            roles:['super'],
+            children:[
+                {path:'/home/accountmanage', subTitle:'账号管理'},
+                {path:'/home/accountadd', subTitle:'添加账号'},
+                {path:'/home/passwordmodify', subTitle:'密码修改'},
+            ]
+        },
+        
+        // 商品管理
+        {
+            
+            iconClass:'el-icon-goods',
+            title:'商品管理',
+            roles:['super', 'normal'],
+            children:[
+                {path:'/home/goodsmanage', subTitle:'商品管理'},
+                {path:'/home/goodsadd', subTitle:'添加商品'}
+            ]
+        },
+        
+        // 统计管理
+        {
+            
+            iconClass:'el-icon-edit-outline',
+            title:'统计管理',
+            roles:['super'],
+            children:[
+                {path:'/home/salestotal', subTitle:'销售统计'},
+                {path:'/home/stocktotal', subTitle:'进货统计'}
+            ]
+        }
+    ]
+
+    /* // 过滤菜单
+    let accessMenu = [];
+    // 遍历菜单  把roles中包含 当前登录用户角色的数据 添加进入一个新数组 那么 这个新数组 就是
+    // 过滤之后的权限菜单
+    menus.forEach(item => {
+        // console.log(item.roles);
+        
+        if (item.roles.includes(role)) {
+            accessMenu.push(item)
+        }
+    }) */
+
+    // 功能和上面一样 把菜单数组中 包含当前登录用户角色的数据 过滤出来
+    let accessMenu = menus.filter(item => item.roles.includes(role))
+
+
+    res.send({accessMenu})
+
+})
+
+
 
 module.exports = router;

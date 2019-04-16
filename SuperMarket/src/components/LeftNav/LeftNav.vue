@@ -34,49 +34,26 @@
 </template>
 <script>
 export default {
-    //动态导航数据
     data(){
         return{
-            "menus":[
-                {
-                    //系统管理
-                    iconClass:'el-icon-document',
-                    title:'系统管理',
-                    //二级
-                    children:[
-                        {path:'/home/systeminfo', subTitle:'系统信息'}
-                    ]
-                },
-                {
-                    // 账号管理
-                    iconClass:'el-icon-news',
-                    title:'账号管理',
-                    children:[
-                        {path:'/home/accountmanage', subTitle:'账号管理'},
-                        {path:'/home/accountadd', subTitle:'添加账号'},
-                        {path:'/home/passwordmodify', subTitle:'密码修改'},
-                    ]
-                },
-                {
-                    // 商品管理
-                    iconClass:'el-icon-goods',
-                    title:'商品管理',
-                    children:[
-                        {path:'/home/goodsmanage', subTitle:'商品管理'},
-                        {path:'/home/goodsadd', subTitle:'添加商品'}
-                    ]
-                },
-                {
-                    // 统计管理
-                    iconClass:'el-icon-edit-outline',
-                    title:'统计管理',
-                    children:[
-                        {path:'/home/salestotal', subTitle:'销售统计'},
-                        {path:'/home/stocktotal', subTitle:'进货统计'}
-                    ]
-                }
-            ]
+            menus:[]
         }
+    },
+    methods:{
+        getMenus(){
+            this.request.get('/account/menus')
+                .then(res =>{
+                    // console.log(res);  
+                    this.menus = res.accessMenu;                 
+                })
+                .catch(err =>{
+                    console.log(err);                   
+                })
+        }
+    },
+    created(){
+        // 调用  请求菜单数据
+        this.getMenus();
     }
 }
 </script>

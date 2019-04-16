@@ -1,6 +1,5 @@
 <template>
-    <div class="top">
-        
+    <div class="top">      
         <el-row :gutter="20">
             <!-- 左侧 -->
             <el-col :span="20">
@@ -17,7 +16,7 @@
                     <el-col :span="8">
                         <!-- 头像 -->
                         <div class="avatar">
-                            <img width="100%" height="100%" src="./cat.jpg" alt="">
+                            <img width="100%" height="100%" :src="imgUrl" alt="">
                         </div>
                     </el-col>
                     <el-col :span="16"> 
@@ -36,7 +35,6 @@
                 </el-row>
             </el-col>
         </el-row>
-
     </div>
 </template>
 
@@ -48,14 +46,17 @@ import local from '@/utils/local'
 export default {
     data () {
         return {
-            account: ''
+            account: '',
+            imgUrl:''
         }
     },
     methods:{
         // 点击下拉框菜单项  触发函数
         handleCommand(command){
             if(command === 'personal'){
-                console.log('点击个人中心');               
+                // 跳转到个人中心
+                this.$router.push('/home/personal')  
+
             }else if(command === 'logout'){
                 // 清除token
                 local.remove('f_h_y_f_c333987');
@@ -72,11 +73,18 @@ export default {
             }
         },
 
-        getCurrentAccount(){
-            this.request.get('/login/currentaccount')
+        // 获取当前登录账号
+        getUserInfo(){
+            this.request.get('/account/accountinfo')
                 .then(res =>{
                     // console.log(res); 
-                    this.account = res;                   
+                    // 接收后端响应的数据
+                    let { account, img_url } = res[0];
+                    // 赋值给对应的变量
+                    this.account = account;
+                    this.imgUrl = `http://127.0.0.1:666/${img_url}`;
+                    // console.log(img_url);
+                    
                 })
                 .catch(err =>{
                     console.log(err);                   
@@ -86,7 +94,7 @@ export default {
 
     created(){
         // 调用函数  获取当前登录的账号
-        this.getCurrentAccount()
+        this.getUserInfo()
     }
 }
 </script>

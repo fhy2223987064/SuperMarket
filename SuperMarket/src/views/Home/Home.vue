@@ -10,12 +10,12 @@
             <el-container>
                 <!-- 头部 -->
                 <el-header>
-                    <Top></Top>
+                    <Top ref="top"></Top>
                 </el-header>
                 <!-- 中部 -->
                 <el-main>
                     <!-- 路由出口 -->
-                    <router-view></router-view>
+                    <router-view @A="B"></router-view>
                 </el-main>
                 <!-- 尾部 -->
                 <el-footer>
@@ -40,7 +40,14 @@ export default {
         LeftNav,
         Top,
         Buttom
+    },
+    methods:{
+        // B函数调用Top组件里的getUserInfo()函数
+        B(){
+            this.$refs.top.getUserInfo();
+        }
     }
+
 }
 </script>
 

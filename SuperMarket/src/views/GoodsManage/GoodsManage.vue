@@ -232,10 +232,12 @@ export default {
                 ]
 
             },
+            // 批量删除选中的id数组
+            selectedId:[]
         }
     },
     methods:{
-        // 请求所有商品数据
+        /* // 请求所有商品数据
         getGoodsList(){
             this.request.get('/goods/goodslist')
                 .then(res =>{
@@ -245,20 +247,68 @@ export default {
                 .catch(err =>{
                     console.log(err);                    
                 })
-        },
+        }, */
 
        // 按照分页请求数据
+        getGoodsListByPage(){
+            // 收集参数
+            let params =  {
+                currentPage : this.currentPage,
+                pageSize : this.pageSize,
+                cateName:this.searchForm.cateName,
+                keyword:this.searchForm.keyword
+            }
+            // 发送请求给后端
+            this.request.get('/goods/goodslistbypage', params)
+                .then(res =>{
+                    // console.log(res); 
+                    // 接收后端响应的数据
+                    let { total, data } = res;
+                    // 赋值给对应的变量
+                    this.total = total;
+                    this.goodsTableData = data;
+
+                    // 分页小bug处理
+                    if( this.currentPage !== 1 && !data.length ){
+                        // 回到上一页
+                        this.currentPage -= 1;
+                        // 调用自己
+                        this.getGoodsListByPage();
+                    }
+                })
+                .catch(err =>{
+                    console.log(err);                    
+                }) 
+        },
 
        // 点击查询函数
         search(){
             // 调用分页函数
-            
+            this.getGoodsListByPage();
+
+            /* // 收集查询参数
+            let params = {
+                cateName:this.searchForm.cateName,
+                keyword:this.searchForm.keyword
+            }
+            // console.log(params);
+            this.request.get('/goods/search', params)
+                .then(res =>{
+                    // console.log(res); 
+                    // 接收后端响应的数据  赋值给表格
+                    this.goodsTableData = res;                  
+                })
+                .catch(err =>{
+                    console.log(err);                    
+                }) */            
         },
 
-
         // 当选择框的状态发送变化  就会触发这个函数，  而且传入被选中的数据，val是一个数组
-        handleSelectionChange(){},
-
+        handleSelectionChange(val){
+            this.selectedId = val.map(v => v.id);
+        },
+            // 获取被选中的id 放入一个数组
+      
         // 修改
         handleEdit(id) {
             // 显示模态框
@@ -268,7 +318,14 @@ export default {
             // 把id发送给后端
             this.request.get('goods/editgoods', { id })
                 .then(res =>{
-                    console.log(res);                   
+                    // console.log(res);
+                    // 接收后端响应的数据  数据回填
+                    this.editForm.classify = res[0].classify;
+                    this.editForm.barcod = res[0].barcod;
+                    this.editForm.goodsName = res[0].goods_name;
+                    this.editForm.goodsPrice = res[0].goods_price;
+                    this.editForm.goodsMarket = res[0].goods_market;
+                    this.editForm.goodsNum = res[0].goods_num;
                 })
                 .catch(err =>{
                     console.log(err);                    
@@ -277,8 +334,52 @@ export default {
 
         // 保存修改
         saveEdit() {
-        },
+            // 获取这个表单验证
+            this.$refs.editForm.validate(valid =>{
+                // 前端验证通过
+                if(valid){
+                    // 关闭模态框
+                    this.dialogFormVisible = false;
+                    // 收集参数
+                    let params = {
+                        classify:this.editForm.classify,
+                        barcod:this.editForm.barcod,
+                        goodsName:this.editForm.goodsName,
+                        goodsPrice:this.editForm.goodsPrice,
+                        goodsMarket:this.editForm.goodsMarket,
+                        goodsNum:this.editForm.goodsNum,
+                        editId: this.editId
+                    }
+                    // 把新数据和原id一起发送给后端
+                    this.request.post('/goods/saveeditgoods', params)
+                        .then(res =>{
+                            // console.log(res); 
+                            // 接收后端响应的数据
+                            let { code, reason } = res;
+                            // 判断
+                            if(code === 0){
+                                // 弹成功提示
+                                this.$message({
+                                    type:'success',
+                                    message:reason
+                                })
+                                // 刷新列表
+                                this.getGoodsListByPage()
+                            }else if(code === 1){
+                                // 弹失败提示
+                                this.$message.error(reason);
+                            }else if(code === 555){
+                                // 弹失败提示
+                                this.$message.error(reason)
+                        }     
+                        })
+                        .catch(err =>{
+                            console.log(err);                          
+                        })
 
+                }
+            })
+        },
 
         // 删除
         handleDelete(id){
@@ -303,8 +404,12 @@ export default {
                                 message:reason
                             })
                             // 刷新列表
-                            this.getGoodsList()
+                            this.getGoodsListByPage()
+
                         }else if(code === 1){
+                            // 弹失败提示
+                            this.$message.error(reason)
+                        }else if(code === 555){
                             // 弹失败提示
                             this.$message.error(reason)
                         }                   
@@ -320,23 +425,68 @@ export default {
             })
         },
 
+        // 批量删除
+        batchDel() {
+            // 如果没有选中  给出错误提示  结束函数
+            if( !this.selectedId.length){
+                // 弹错误提示
+                this.$message.error('请选择以后再进行此操作！');
+                return
+            }
 
-
+            // 优化删除体验
+            this.$confirm('你确定要批量删除吗?', '温馨提示', {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }).then(() => {
+                // 收集被选中的数据的id
+                let params = {
+                    idArr: this.selectedId
+                }
+                // 把被选中的id们一起发送给后端
+                this.request.get('/goods/batchdel', params)
+                    .then(res =>{
+                        // console.log(res);  
+                        // 接收数据
+                        let { code, reason } = res;
+                        if (code === 0) {
+                            // 弹成功提示
+                            this.$message({
+                                type: 'success',
+                                message: reason
+                            })
+                            // 刷新列表
+                            this.getGoodsListByPage();
+                
+                        } else if (code === 1) {
+                            // 弹失败提示
+                            this.$message.error(reason)
+                        }else if(code === 555){
+                            // 弹失败提示
+                            this.$message.error(reason)
+                        }         
+                    })
+                    .catch(err =>{
+                        console.log(er);                      
+                    })
+            }).catch(() => { // 取消
+                this.$message({
+                    type: 'info',
+                    message: '已取消删除'
+                })
+            })
+        },
 
         // 每页条数改变
         handleSizeChange(val) {
             this.pageSize = val;
-            // this.getGoodsListByPage()
+            this.getGoodsListByPage()
         },
-
         // 当前页改变
         handleCurrentChange(val) {
             this.currentPage = val;
-            // this.getGoodsListByPage()
-        },
-
-        // 批量删除
-        batchDel() {
+            this.getGoodsListByPage()
         },
 
         // 取消批量选择
@@ -344,17 +494,15 @@ export default {
             // 选中整个表格  调用函数取消选择
             this.$refs.goodsTableData.clearSelection()
         }
-
     },
 
     // 生命周期钩子函数 vue实例对象创建完成 dom还没有生成
     created () {
         // 调用
-        this.getGoodsList()
+        this.getGoodsListByPage()
 
     },
-
-    
+  
 }
 </script>
 
